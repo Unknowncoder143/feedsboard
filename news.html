@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>📰 Rishi’s Pro News Hub</title>
+<style>
+  /* Reset & basics */
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #f9f9f9; color: #222;
+  }
+  header {
+    background: #003366; color: white;
+    padding: 15px 30px;
+    text-align: center;
+    font-size: 1.8rem;
+    letter-spacing: 1px;
+  }
+  nav {
+    display: flex;
+    justify-content: center;
+    background: #00509e;
+  }
+  nav button {
+    background: transparent;
+    border: none;
+    padding: 15px 25px;
+    color: white;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 0.3s ease;
+  }
+  nav button:hover, nav button.active {
+    background: #003366;
+  }
+  main {
+    max-width: 1000px;
+    margin: 25px auto;
+    padding: 0 20px;
+  }
+  section.feed {
+    margin-bottom: 40px;
+  }
+  section.feed h2 {
+    border-bottom: 3px solid #00509e;
+    padding-bottom: 8px;
+    margin-bottom: 15px;
+    color: #003366;
+  }
+  article.news-item {
+    background: white;
+    border-radius: 6px;
+    padding: 15px 20px;
+    margin-bottom: 15px;
+    box-shadow: 0 2px 6px rgb(0 0 0 / 0.1);
+    transition: box-shadow 0.2s ease;
+  }
+  article.news-item:hover {
+    box-shadow: 0 4px 12px rgb(0 0 0 / 0.15);
+  }
+  article.news-item a.title {
+    color: #00509e;
+    font-weight: 700;
+    text-decoration: none;
+    font-size: 1.1rem;
+  }
+  article.news-item a.title:hover {
+    text-decoration: underline;
+  }
+  .news-meta {
+    color: #666;
+    font-size: 0.85rem;
+    margin: 6px 0 10px 0;
+  }
+  .news-desc {
+    font-size: 1rem;
+    color: #333;
+  }
+  @media (max-width: 600px) {
+    nav {
+      flex-wrap: wrap;
+    }
+    nav button {
+      flex: 1 1 100%;
+      padding: 12px;
+      font-size: 0.9rem;
+    }
+  }
+</style>
+</head>
+<body>
+
+<header>📰 Rishi’s Pro News Hub</header>
+
+<nav id="category-nav"></nav>
+
+<main id="news-container">
+  <p style="text-align:center; color:#777;">Loading news…</p>
+</main>
+
+<script>
+  const categories = {
+    Business: [
+      'https://feeds.a.dj.com/rss/RSSMarketsMain.xml',
+      'https://www.moneycontrol.com/rss/business.xml'
+    ],
+    Sports: [
+      'http://www.espncricinfo.com/rss/content/story/feeds/0.xml',
+      'https://www.espn.com/espn/rss/news'
+    ],
+    Technology: [
+      'https://feeds.arstechnica.com/arstechnica/index',
+      'https://www.reddit.com/r/technology/.rss'
+    ],
+    World: [
+      'http://feeds.bbci.co.uk/news/world/rss.xml',
+      'https://www.reddit.com/r/worldnews/.rss'
+    ],
+    India: [
+      'https://feeds.feedburner.com/ndtvnews-top-stories',
+      'https://www.reddit.com/r/india/.rss'
+    ]
+  };
+
+  const nav = document.getElementById('category-nav');
+  const newsContainer = document.getElementById('news-container');
+
+  function createNav() {
+    Object.keys(categories).forEach((cat, i) => {
+      const btn = document.createElement('button');
+      btn.textContent = cat;
+      if (i === 0) btn.classList.add('active');
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        loadCategory(cat);
+      });
+      nav.appendChild(btn);
+    });
+  }
+
+  async function fetchFeed(url) {
+    try {
+      const response = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent(url));
+      if (!response.ok) throw new Error('Network response not ok');
+      const data = await response.json();
+      const parser = new DOMParser();
+      return parser.parseFromString(data.contents, "application/xml");
+    } catch (error) {
+      console.error('Failed fetching:', url, error);
+      return null;
+    }
+  }
+
+  async function loadCategory(category) {
+    newsContainer.innerHTML = `<p style="text-align:center; color:#777;">Loading ${category} news…</p>`;
+    const feeds = categories[category];
+    let html = '';
+    for (const feedUrl of feeds) {
+      const xml = await fetchFeed(feedUrl);
+      if (!xml) {
+        html += `<section class="feed"><h2>${category}</h2><p>Error loading feed.</p></section>`;
+        continue;
+      }
+      const items = xml.querySelectorAll('item');
+      html += `<section class="feed"><h2>${category}</h2>`;
+      items.forEach((item, i) => {
+        if(i >= 6) return; // show max 6 news per feed
+        const title = item.querySelector('title')?.textContent || 'No Title';
+        const link = item.querySelector('link')?.textContent || '#';
+        const pubDate = item.querySelector('pubDate')?.textContent || '';
+        const desc = item.querySelector('description')?.textContent || '';
+        html += `
+          <article class="news-item">
+            <a href="${link}" target="_blank" rel="noopener noreferrer" class="title">${title}</a>
+            <div class="news-meta">${new Date(pubDate).toLocaleString()}</div>
+            <div class="news-desc">${desc.replace(/<[^>]*>?/gm, '').slice(0, 180)}...</div>
+          </article>
+        `;
+      });
+      html += `</section>`;
+    }
+    newsContainer.innerHTML = html;
+  }
+
+  createNav();
+  loadCategory(Object.keys(categories)[0]);
+</script>
+
+</body>
+</html>
